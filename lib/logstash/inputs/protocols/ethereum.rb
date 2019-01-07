@@ -1,6 +1,9 @@
 # encoding: utf-8
 require 'logstash/inputs/protocols/protocol'
 require 'date'
+require 'ethereum.rb/lib/ethereum/decoder'
+require 'ethereum.rb/lib/ethereum/abi'
+require "sha3-pure-ruby"
 
 class EthereumProtocol < BlockchainProtocol
 
@@ -45,6 +48,43 @@ class EthereumProtocol < BlockchainProtocol
 
     return block_data, tx_info, timestamp
   end # def get_block
+  
+  # returns the event decoded data/types
+  def get_event_data(contract_address, event_signature, event_types, tx_hash)
+    event_data = Hash.new
+    tx_receipt = make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
+    tx_receipt['logs'].each { |logs|
+      if logs['address'] == contract_address && logs['topics'].include?(hexprefix(event_signature))
+        # this is my event on my contract !
+        tx_data = logs['data']
+        # decode the data thanks to the ethereum library
+         cpt = 0
+         event_types.each { |name, type|
+           event_data[name] = decode_event_data(type, tx_data, cpt)
+          cpt += 20
+         }
+      end
+    }
+    event_data
+  end
+  
+  def get_event_signature(event_name, event_types)
+    event_signature = get_signature_from_name_types(event_name, event_types)
+    Digest::SHA3.hexdigest(event_signature, 256)
+  end
+  
+  def get_signature_from_name_types(event_name, event_types)
+    tmp = event_name + '('
+    event_types.each { |name, type|
+     tmp += type + ','
+    }
+    tmp.chop() + ')'
+  end
+  
+  def decode_event_data(data_type, data, data_start)
+    @decoder = Ethereum::Decoder.new if @decoder == nil
+    hexprefix(@decoder.decode(data_type, data, data_start))
+  end
 
   def unhex(data, num_keys)
     data.each do |key, value|

@@ -3,6 +3,7 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "stud/interval"
 require "socket" # for Socket.gethostname
+require 'json'
 
 # This input plugin reads blocks from the specified blockchain.
 # It currently supports both the Bitcoin and the Ethereum blockchain protocols.
@@ -38,15 +39,26 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
   # The height of the first block to fetch (defaults to 0, i.e. starts at the genesis block)
   config :start_height, :validate => :number, :default => 0
 
-  # The granularity of the events to produce: "transaction" or "block" (default)
+  # The granularity of the events to produce: "event", "transaction" or "block" (default)
   config :granularity, :validate => :string, :default => "block"
 
   # Set how frequently blocks should be retrieved.
   # `1`, means retrieve one block every second.
   # The default, `0`, means retrieve one block immediately after the previous one has been retrieved (i.e. don't wait).
   config :interval, :validate => :number, :default => 0
+  
+  # The Contract name to fetch event data
+  # Its file must be in this plugin root directory
+  config :contract_name, :validate => :string, :default => "MyContract"
+  
+  # The event that must be produce
+  # granularity must be "event"
+  config :event_name, :validate => :string, :default => "EventName"
 
-  GRANULARITIES = %w(transaction block)
+  # The network ID for the contract
+  config :network_id, :validate => :number, :default => 1
+
+  GRANULARITIES = %w(transaction block event)
   PROTOCOLS = %w(bitcoin ethereum)
 
   public
@@ -86,12 +98,18 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
 
     # start at specified block, or latest or genesis one
     current_height = @start_height
+    
+    # retrieve the contract address
+    contract_address = get_contract_address
+    
+    event_types = get_event_types
 
     # we can abort the loop if stop? becomes true
-    while !stop?
+    # while !stop_scan?(current_height, latest_height)
+    while !stop_scan?(current_height, latest_height)
       begin
         # get block and transaction data using the given protocol
-        block_data, tx_info, timestamp = @blockchain.get_block(current_height)
+        block_data, tx_info, timestamp = @blockchain.get_block(current_height.to_s(16))
 
         # add some information
         block_data['tx_count'] = tx_info.length
@@ -105,6 +123,15 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
               tx['@timestamp'] = timestamp
               tx['block'] = block_data
               enqueue(queue, tx)
+            }
+          when 'event'
+            event_signature = @blockchain.get_event_signature(@event_name, event_types)
+            tx_info.each { |tx|
+              event_data = @blockchain.get_event_data(contract_address, event_signature, event_types, tx['hash'])
+              if !event_data.empty?
+                puts event_data
+              end
+              enqueue(queue, event_data)
             }
           else
             block_data['@timestamp'] = timestamp
@@ -136,6 +163,32 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     decorate(event)
     queue << event
   end # def enqueue
+  
+  def get_contract_address
+    get_contract['networks'][@network_id.to_s]['address']
+  end
+  
+  def get_event_types
+    data_types = Hash.new
+    data_hash = get_contract
+    data_hash['abi'].each do |element|
+      if element['type'] == "event" && element['name'] == @event_name
+        element['inputs'].each do |field|
+          data_types[field['name']] = field['type']
+        end
+      end
+    end
+    data_types
+  end
+  
+  def get_contract
+    file = File.read(contract_name + ".json")
+    JSON.parse(file)
+  end
+  
+  def stop_scan?(current_height, latest_height)
+    current_height == latest_height
+  end
 
   def stop
   end
