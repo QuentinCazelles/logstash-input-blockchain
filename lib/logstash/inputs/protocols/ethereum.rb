@@ -68,22 +68,12 @@ class EthereumProtocol < BlockchainProtocol
     event_data
   end
   
-  def get_event_signature(event_name, event_types)
-    event_signature = get_signature_from_name_types(event_name, event_types)
-    Digest::SHA3.hexdigest(event_signature, 256)
-  end
-  
   def get_signature_from_name_types(event_name, event_types)
     tmp = event_name + '('
     event_types.each { |name, type|
      tmp += type + ','
     }
     tmp.chop() + ')'
-  end
-  
-  def decode_event_data(data_type, data, data_start)
-    @decoder = Ethereum::Decoder.new if @decoder == nil
-    hexprefix(@decoder.decode(data_type, data, data_start))
   end
 
   def unhex(data, num_keys)
@@ -99,6 +89,20 @@ class EthereumProtocol < BlockchainProtocol
                  data[key] = value.to_string()
            end
       end
+    end
+    
+    # These are the methods we delegate to a third-party
+    # To get the topic of an event we do a keccak256(event_signature)
+    # For now it uses keccak-pure-ruby directly
+    def get_event_signature(event_name, event_types)
+      event_signature = get_signature_from_name_types(event_name, event_types)
+      Digest::SHA3.hexdigest(event_signature, 256)
+    end
+    
+    # To decode the event data according to the types of the abi
+    def decode_event_data(data_type, data, data_start)
+      @decoder = Ethereum::Decoder.new if @decoder == nil
+      hexprefix(@decoder.decode(data_type, data, data_start))
     end
   end
   

@@ -53,7 +53,7 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
   
   # The event that must be produce
   # granularity must be "event"
-  config :event_name, :validate => :string, :default => "EventName"
+  config :event_name, :validate => :string, :default => "MyEvent"
 
   # The network ID for the contract
   config :network_id, :validate => :number, :default => 1
@@ -129,9 +129,8 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
             tx_info.each { |tx|
               event_data = @blockchain.get_event_data(contract_address, event_signature, event_types, tx['hash'])
               if !event_data.empty?
-                puts event_data
+                enqueue(queue, event_data)
               end
-              enqueue(queue, event_data)
             }
           else
             block_data['@timestamp'] = timestamp

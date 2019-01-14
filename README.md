@@ -59,9 +59,13 @@ The following list enumerates all configuration parameters of the `blockchain` i
  * `granularity`: (optional) the granularity of the events to produce (possible values are `block`, `transaction`) (default: `block`) 
    * `block`: one event will be created for each retrieved block
    * `transaction`: one event will be created for each transaction of each retrieved block
+   * `event`: one event will be created for each event of a certain contract in all retrieved block
  * `interval`: set how frequently blocks should be retrieved:
    * `1` means retrieve one block per second
    * `0` means retrieve the next block immediately
+ * `contract_name`: set the contract to listen for events (MyContract.json must be put in root directory)
+ * `event_name`: set the Ethereum event to listen to (plugin will get types in abi)
+ * `network_id`: set the contract network id for listening to contract event
 
 ### Sample configurations
 
@@ -92,6 +96,26 @@ input {
     port => 8545
     start_height => 100000
     granularity => "transaction"
+  }
+}
+output {
+  stdout {
+    codec => json
+  }
+}
+```
+
+The following configuration will start pulling blocks from the beginning of the Ethereum blockchain and create one event for each "MyEvent" event emitted by "MyContract" contract with the retrieved blocks: 
+```
+input {
+  blockchain {
+    protocol => "ethereum"
+    host => "localhost"
+    port => 8545
+    granularity => "event"
+    contract_name => "MyContract"
+    event_name => "MyEvent"
+    network_id => 1
   }
 }
 output {
@@ -320,6 +344,19 @@ And here is a how a sample Ethereum `transaction` event will look like (note tha
     "hash": "3ffbb968107fca6052ff609b6a8478ae9b915a88a3a8f406600aab793cf54d20",
     "timestamp": 1439799342
   }
+}
+```
+
+An Ethereum `event` event does not have a standard structure.
+This one depends on event properties and types.
+For example, MyEvent on MyContract looks like this:
+
+```
+{
+  "@timestamp": "2015-08-17T08:15:42.000Z",
+  "@version": "1",
+  "myAddress1": "cf00a85f3826941e7a25bfcf9aac575d40410852"
+  "myAddress2": "d9666150a9da92d9108198a4072970805a8b3428"
 }
 ```
 
