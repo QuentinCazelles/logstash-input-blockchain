@@ -241,10 +241,10 @@
         "@version": {
           "type": "keyword"
         },
-        "myAddress1": {
+        "newTaskAddress": {
           "type": "keyword"
         },
-        "myAddress2": {
+        "author": {
           "type": "keyword"
         }
       }

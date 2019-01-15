@@ -103,6 +103,8 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     contract_address = get_contract_address
     
     event_types = get_event_types
+    
+    event_signature = @blockchain.get_event_signature(@event_name, event_types)
 
     # we can abort the loop if stop? becomes true
     # while !stop_scan?(current_height, latest_height)
@@ -125,9 +127,9 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
               enqueue(queue, tx)
             }
           when 'event'
-            event_signature = @blockchain.get_event_signature(@event_name, event_types)
             tx_info.each { |tx|
               event_data = @blockchain.get_event_data(contract_address, event_signature, event_types, tx['hash'])
+              puts event_data
               if !event_data.empty?
                 enqueue(queue, event_data)
               end

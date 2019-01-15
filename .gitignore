@@ -1,3 +1,4 @@
 logstash-input-blockchain.iml
 logstash-input-blockchain-0.1.0.gem
 .project
+.buildpath
