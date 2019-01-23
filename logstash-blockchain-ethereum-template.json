@@ -233,21 +233,36 @@
         }
       }
     },
-    "event": {
-      "properties": {
-        "@timestamp": {
-          "type": "date"
-        },
-        "@version": {
-          "type": "keyword"
-        },
-        "newTaskAddress": {
-          "type": "keyword"
-        },
-        "author": {
-          "type": "keyword"
-        }
-      }
+    "task": {
+    	"properties": {
+    		"reference": {
+    			"type": "keyword"
+    		},
+    		"name": {
+    			"type": "keyword"
+    		},
+    		"state": {
+    			"type": "text"
+    		},
+    		"owner": {
+    			"type": "keyword"
+    		},
+    		"position": {
+    			"type": "keyword"
+    		},
+    		"creationDate": {
+    			"type": "date"
+    		},
+    		"description": {
+    			"type": "text"
+    		},
+    		"address": {
+    			"type": "keyword"
+    		},
+    		"author": {
+    			"type": "keyword"
+    		}
+    	}
     }
   }
 }

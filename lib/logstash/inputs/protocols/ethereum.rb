@@ -5,10 +5,16 @@ require 'ethereum.rb/lib/ethereum/decoder'
 require 'ethereum.rb/lib/ethereum/abi'
 require "sha3-pure-ruby"
 
+require 'ethereum.rb/lib/ethereum/encoder'
+
 class EthereumProtocol < BlockchainProtocol
 
   BLOCK_NUM_KEYS = %w(number difficulty totalDifficulty size gasLimit gasUsed timestamp)
   TX_NUM_KEYS = %w(nonce blockNumber transactionIndex gasPrice gas)
+  
+  DEPLOYEES_INFOS_STRINGS = %w(reference name position creationDate description)
+  
+  @@decoder = Ethereum::Decoder.new
 
   def initialize(host, port, user, pass, logger)
     super(host, port, nil, nil, logger)
@@ -31,9 +37,11 @@ class EthereumProtocol < BlockchainProtocol
 
   # returns the block at the given height
   public
-  def get_block(height)
+  def get_block(height)    
     # get the block data
     block_data = make_rpc_call('eth_getBlockByNumber', hexprefix(height), true)
+    
+    return nil, nil, nil if block_data == nil
 
     # get all transaction data
     tx_info = block_data.delete('transactions')
@@ -45,7 +53,7 @@ class EthereumProtocol < BlockchainProtocol
     end
 
     timestamp = Time.at(block_data['timestamp']).utc.to_datetime.iso8601(3)
-
+      
     return block_data, tx_info, timestamp
   end # def get_block
   
@@ -55,13 +63,13 @@ class EthereumProtocol < BlockchainProtocol
     event_data = Hash.new
     tx_receipt = make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
     tx_receipt['logs'].each { |logs|
-      if logs['address'] == contract_address && logs['topics'].include?(hexprefix(event_signature))
+      if logs['address'] == hexprefix(contract_address) && logs['topics'].include?(hexprefix(event_signature))
         # this is my event on my contract !
         tx_data = logs['data']
         # decode the data thanks to the ethereum library
          cpt = 0
          event_types.each { |name, type|
-           event_data[name] = decode_event_data(type, tx_data, cpt)
+           event_data[name] = decode_data(type, tx_data, cpt)
           cpt += 20
          }
       end
@@ -87,7 +95,7 @@ class EthereumProtocol < BlockchainProtocol
            end
       else
            if(value.methods.include? :to_string)
-                 data[key] = value.to_string()
+                data[key] = value.to_string()
            end
       end
     end
@@ -99,18 +107,131 @@ class EthereumProtocol < BlockchainProtocol
   public
   def get_event_signature(event_name, event_types)
     event_signature = get_signature_from_name_types(event_name, event_types)
-    Digest::SHA3.hexdigest(event_signature, 256)
-  end
-  
-  # To decode the event data according to the types of the abi
-  def decode_event_data(data_type, data, data_start)
-    @decoder = Ethereum::Decoder.new if @decoder == nil
-    hexprefix(@decoder.decode(data_type, data, data_start))
+    keccak256(event_signature)
   end
   
   def hexprefix(param)
     return '0x' + param.to_s
   end
+  
+  def get_task_infos(task_address, task_manager_address)
+    task_infos = Hash.new
+    TASK_INFOS_STRINGS.each do |property|
+      task_infos[property] = get_property("string", property, task_address)
+    end
+    task_infos['state'] = get_function_return("isClosedTask", task_manager_address, {"address" => task_address}, "bool") == 'false' ? 'open' : 'closed'
+      
+
+      
+    task_infos
+  end
+  
+  def get_tx_receipt(tx_hash)
+    make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
+  end
+  
+  def get_contract_infos(tx_infos, contract_name, block_number)
+    
+    contract_infos = Hash.new
+    
+    # tx_receipt = make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
+      
+    # puts tx_receipt
+    
+    # puts tx_receipt['contractAddress']
+      
+    # contract_address = tx_receipt['contractAddress']
+      
+    # if contract_address != nil
+     
+    
+    to_address = tx_infos['to']
+      
+    if to_address != nil
+      
+      contract_code = make_rpc_call('eth_getCode', hexprefix(to_address), hexprefix(block_number))
+        
+      puts contract_code
+      
+      if contract_code != "0x"
+        @contract = get_contract(contract_name) if @contract == nil
+        
+        # puts @contract
+        
+        # contract_code = make_rpc_call('eth_getCode', contract_address, hexprefix(block_number))
+        
+  #      puts "contract_code"
+  #      puts contract_code
+  #      puts "@contract['bytecode']"
+  #      puts @contract['bytecode']
+        
+        if contract_code == @contract['bytecode']
+          TASK_INFOS_STRINGS.each { |property|
+            contract_infos[property] = get_property("string", property, )
+          }
+       end
+     end
+    end
+    contract_infos
+  end
+  
+def keccak256(string)
+  Digest::SHA3.hexdigest(string, 256)
+end
+  
+  # We should probably use the file rather than an hard-coded array
+  def get_deployee_infos(deployee_address)
+    infos = Hash.new
+    DEPLOYEES_INFOS_STRINGS.each { |property|
+      infos[property] = get_property("string", property, deployee_address)
+    }
+    infos
+  end
+  
+  def get_contract(contract_name)
+    file = File.read(contract_name + ".json")
+    JSON.parse(file)
+  end
+  
+  def get_function_return(function_label, contract_address, arguments, return_type)
+    input_data = function_label + '('
+    input_data_args = ""
+    arguments.each { |arg_type, arg_value|
+      input_data += arg_type + ','
+      arg_tmp = ""
+      if arg_type == "address"
+        arg_tmp = arg_value.to_s
+        while arg_tmp.length != 64 do
+          arg_tmp += '0'
+        end
+      end
+      input_data_args += arg_tmp
+    }
+    input_data = input_data.chop()
+    input_data += ')'
+    input_data = '0x' + keccak256(input_data)
+    input_data = input_data[0, 10]
+    input_data += input_data_args
+    result = make_rpc_call('eth_call', {"to" => hexprefix(contract_address), "data" => input_data}, "latest")
+    decode_data(return_type, result)
+  end
+  
+  def get_property(property_type, property_name, contract_address)
+    function_signature = '0x' + keccak256(property_name + '()')
+    input_data = function_signature[0, 10]
+    result = make_rpc_call('eth_call', {"to" => hexprefix(contract_address), "data" => input_data}, "latest")
+    decode_data(property_type, result)
+  end
+  
+  def decode_data(data_type, data, data_start = 0)
+    @@decoder.decode(data_type, data, data_start)
+  end
+  
+
+  
+
+  
+
 end
 
 class String
@@ -119,7 +240,12 @@ class String
   end
 
   def to_string
-    self.convert_base(16, 16)
+    length_before = self.length
+    conv = self.convert_base(16, 16)
+    while length_before == 66 && conv.length != 64 do
+      conv = '0' + conv
+    end
+    conv
   end
 
   def convert_base(from, to)
