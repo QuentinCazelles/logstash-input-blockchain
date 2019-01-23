@@ -111,6 +111,9 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     # while !stop_scan?(current_height, latest_height)
     while !stop?
       begin
+        
+        puts current_height
+        
         # get block and transaction data using the given protocol
         block_data, tx_info, timestamp = @blockchain.get_block(current_height.to_s(16))
           
@@ -137,14 +140,14 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
               }
             when 'contract'
               tx_info.each { |tx|
-                tx_receipt = @blockchain.get_tx_receipt(tx['hash'])
-                if tx_receipt['to'] == contract_factory_address()
+                tx_receipt = @blockchain.get_tx_receipt(tx['hash'])                  
+                if (tx_receipt['to'].to_s) == get_address(contract_factory)
                   tx_receipt['logs'].each { |log|
                    if log['topics'].include?(get_event_signature())
                     deployee_address = @blockchain.decode_data("address", log['data'])
                     deployee_infos = @blockchain.get_deployee_infos(deployee_address)
                     puts deployee_infos
-                    enqueue(queue, deployee_infos)
+                    # enqueue(queue, deployee_infos)
                    end
                   }
                 end
@@ -175,11 +178,6 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     queue << event
   end # def enqueue
   
-  def get_contract_address
-    address = get_contract['networks'][@network_id.to_s]['address']
-    address[2..address.length - 1]
-  end
-  
   def get_event_types
     data_types = Hash.new
     data_hash = JSON.parse(File.read("MroOnChain.json"))
@@ -192,29 +190,12 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     end
     data_types
   end
-  
-  private
-  def get_contract
-    file = File.read(contract_factory + ".json")
-    JSON.parse(file)
-  end
-  
-#  private
-#  def stop_scan?(current_height, latest_height)
-#    if current_height == latest_height
-#      save_block_height(latest_height)
-#      return true
-#    end
-#    false
-#  end
-  
-  private
+
   def read_start_height
     return File.read('block_height').to_i if File.exist?('block_height')
     @start_height
   end
-  
-  private
+
   def save_block_height(block_height)
     File.delete('block_height') if File.exist?('block_height')
     File.open('block_height', 'w') { |file|
@@ -232,8 +213,12 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     "0x" + @blockchain.keccak256(event_signature)
   end
   
-  def contract_factory_address
-    JSON.parse(File.read(contract_factory + ".json"))['networks'][@network_id.to_s]['address']
+  def get_address(contract)
+    get_contract_obj(contract)['networks'][@network_id.to_s]['address']
+  end
+  
+  def get_contract_obj(contract)
+    JSON.parse(File.read(contract + ".json"))
   end
   
 end # class LogStash::Inputs::Blockchain

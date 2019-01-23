@@ -100,79 +100,13 @@ class EthereumProtocol < BlockchainProtocol
       end
     end
   end
-    
-  # These are the methods we delegate to a third-party
-  # To get the topic of an event we do a keccak256(event_signature)
-  # For now it uses keccak-pure-ruby directly
-  public
-  def get_event_signature(event_name, event_types)
-    event_signature = get_signature_from_name_types(event_name, event_types)
-    keccak256(event_signature)
-  end
   
   def hexprefix(param)
     return '0x' + param.to_s
   end
   
-  def get_task_infos(task_address, task_manager_address)
-    task_infos = Hash.new
-    TASK_INFOS_STRINGS.each do |property|
-      task_infos[property] = get_property("string", property, task_address)
-    end
-    task_infos['state'] = get_function_return("isClosedTask", task_manager_address, {"address" => task_address}, "bool") == 'false' ? 'open' : 'closed'
-      
-
-      
-    task_infos
-  end
-  
   def get_tx_receipt(tx_hash)
     make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
-  end
-  
-  def get_contract_infos(tx_infos, contract_name, block_number)
-    
-    contract_infos = Hash.new
-    
-    # tx_receipt = make_rpc_call('eth_getTransactionReceipt', hexprefix(tx_hash))
-      
-    # puts tx_receipt
-    
-    # puts tx_receipt['contractAddress']
-      
-    # contract_address = tx_receipt['contractAddress']
-      
-    # if contract_address != nil
-     
-    
-    to_address = tx_infos['to']
-      
-    if to_address != nil
-      
-      contract_code = make_rpc_call('eth_getCode', hexprefix(to_address), hexprefix(block_number))
-        
-      puts contract_code
-      
-      if contract_code != "0x"
-        @contract = get_contract(contract_name) if @contract == nil
-        
-        # puts @contract
-        
-        # contract_code = make_rpc_call('eth_getCode', contract_address, hexprefix(block_number))
-        
-  #      puts "contract_code"
-  #      puts contract_code
-  #      puts "@contract['bytecode']"
-  #      puts @contract['bytecode']
-        
-        if contract_code == @contract['bytecode']
-          TASK_INFOS_STRINGS.each { |property|
-            contract_infos[property] = get_property("string", property, )
-          }
-       end
-     end
-    end
-    contract_infos
   end
   
 def keccak256(string)
@@ -186,11 +120,6 @@ end
       infos[property] = get_property("string", property, deployee_address)
     }
     infos
-  end
-  
-  def get_contract(contract_name)
-    file = File.read(contract_name + ".json")
-    JSON.parse(file)
   end
   
   def get_function_return(function_label, contract_address, arguments, return_type)
