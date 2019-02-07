@@ -21,5 +21,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'logstash-codec-plain'
   s.add_runtime_dependency 'stud', '>= 0.0.22'
   s.add_development_dependency 'logstash-devutils', '>= 0.0.16'
-  s.add_dependency "keccak-pure-ruby", '>= 0.2.1'
+  s.add_runtime_dependency "keccak-pure-ruby", '>= 0.2.1'
 end

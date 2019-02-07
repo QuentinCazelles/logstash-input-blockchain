@@ -49,17 +49,14 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
   
   # The Contract name to fetch data
   # Its file must be in this plugin root directory
-  config :contract_name, :validate => :string, :default => "MyDeployee"
+  config :deployee_contract, :validate => :string, :default => "MyDeployee"
   
   # The Contract factory
-  config :contract_factory, :validate => :string, :default => "MyDeployer"
+  config :deployer_contract, :validate => :string, :default => "MyDeployer"
   
-  # The contract creation event
-  config :contract_creation_event, :validate => :string, :default => "CreateDeployee"
+  # The events watched (On Deployer, Deployee is read-only)
+  config :events_watched, :validate => :array, :default => []
   
-  # The contract creation field for deployee address (in event)
-  config :contract_creation_field, :validate => :string, :default => "newTaskAddress"
-
   # The network ID for the contract
   config :network_id, :validate => :number, :default => 1
 
@@ -80,7 +77,7 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
 
     case @protocol
       when 'ethereum'
-        @blockchain = EthereumProtocol.new(@host, @port, @user, @password, @logger)
+        @blockchain = EthereumProtocol.new(@host, @port, @user, @password, @logger, @deployee_contract, @deployer_contract, @events_watched, @network_id)
       else
         @blockchain = BitcoinProtocol.new(@host, @port, @user, @password, @logger)
     end
@@ -140,16 +137,11 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
               }
             when 'contract'
               tx_info.each { |tx|
-                tx_receipt = @blockchain.get_tx_receipt(tx['hash'])                  
-                if (tx_receipt['to'].to_s) == get_address(contract_factory)
-                  tx_receipt['logs'].each { |log|
-                   if log['topics'].include?(get_event_signature())
-                    deployee_address = @blockchain.decode_data("address", log['data'])
-                    deployee_infos = @blockchain.get_deployee_infos(deployee_address)
-                    puts deployee_infos
-                    # enqueue(queue, deployee_infos)
-                   end
-                  }
+                deployee_infos = @blockchain.get_deployee_infos(tx)
+                if deployee_infos != nil
+                  deployee_infos = encode(deployee_infos)
+                  @logger.info('Found deployee infos', :deployee_address => deployee_infos['address'], :infos => deployee_infos)
+                  enqueue(queue, deployee_infos)
                 end
               }
             else
@@ -171,25 +163,26 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
       end
     end # loop
   end # def run
+  
+  def encode(infos)
+    new_infos = Hash.new
+    infos.each_pair { |key, value|
+      # For geo points
+      if value.is_a?(String) && match = value.match(/(-?\d+\.\d+) ; (-?\d+\.\d+)/)
+        lat, lon = match.captures
+        new_infos[key] = {"lat" => lat.to_f, "lon" => lon.to_f}
+      else
+        new_infos[key] = value
+      end
+    }
+    new_infos
+  end
 
   def enqueue(queue, data)
     event = LogStash::Event.new(data)
     decorate(event)
     queue << event
   end # def enqueue
-  
-  def get_event_types
-    data_types = Hash.new
-    data_hash = JSON.parse(File.read("MroOnChain.json"))
-    data_hash['abi'].each do |element|
-      if element['type'] == "event" && element['name'] == @contract_creation_event
-        element['inputs'].each do |field|
-          data_types[field['name']] = field['type']
-        end
-      end
-    end
-    data_types
-  end
 
   def read_start_height
     return File.read('block_height').to_i if File.exist?('block_height')
@@ -201,24 +194,6 @@ class LogStash::Inputs::Blockchain < LogStash::Inputs::Base
     File.open('block_height', 'w') { |file|
       file.write(block_height.to_s)
     }
-  end
-  
-  def get_event_signature
-    event_types = get_event_types()
-    event_signature = contract_creation_event + '('
-    event_types.each { |name, type|
-      event_signature += type + ','
-    }
-    event_signature = event_signature.chop() + ')'
-    "0x" + @blockchain.keccak256(event_signature)
-  end
-  
-  def get_address(contract)
-    get_contract_obj(contract)['networks'][@network_id.to_s]['address']
-  end
-  
-  def get_contract_obj(contract)
-    JSON.parse(File.read(contract + ".json"))
   end
   
 end # class LogStash::Inputs::Blockchain

@@ -6,31 +6,6 @@ events for each block and/or transaction that it encounters. At the moment, both
 
 ## Prerequisite
 
-### Bitcoin blockchain
-
-You need a fully synced [bitcoin-core client](https://bitcoin.org/en/download). 
-Obviously, it will also work with partially synced clients but you'll not be able to pull recent blocks.
-
-Also make sure to enable the RPC server to serve requests in your `bitcoin.conf` configuration file:
-```
-# JSON-RPC options (for controlling a running Bitcoin/bitcoind process)
-
-# server=1 tells Bitcoin-Qt and bitcoind to accept JSON-RPC commands
-server=1
-
-# You must set rpcuser and rpcpassword to secure the JSON-RPC api
-rpcuser=test
-rpcpassword=test
-
-# server=1 tells Bitcoin-Qt to accept JSON-RPC commands.
-# it is also read by bitcoind to determine if RPC should be enabled 
-rpcallowip=127.0.0.1
-
-# Listen for RPC connections on this TCP port:
-rpcport=8332
-
-```
-
 ### Ethereum blockchain
 
 You need a fully synced [Ethereum client](http://ethdocs.org/en/latest/ethereum-clients/choosing-a-client.html). 
@@ -69,24 +44,6 @@ The following list enumerates all configuration parameters of the `blockchain` i
 
 ### Sample configurations
 
-The following configuration will start pulling blocks from the beginning of the Bitcoin blockchain and produce one event per block 
- ```
- input {
-   blockchain {
-     protocol => "bitcoin"
-     host => "localhost"
-     port => 8332
-     user => "test"
-     password => "test"
-   }
- }
- output {
-   stdout {
-     codec => json
-   }
- }
- ```
-
 The following configuration will start pulling block `100000` from the Ethereum blockchain and create one event for each transaction with the retrieved blocks: 
 ```
 input {
@@ -105,16 +62,18 @@ output {
 }
 ```
 
-The following configuration will start pulling blocks from the beginning of the Ethereum blockchain and create one event for each "MyEvent" event emitted by "MyContract" contract with the retrieved blocks: 
+The following configuration depends on a factory architecture ("contract" granularity).
+"MyContract" emits events. The first field of every events is the deployee address.
+Logstash will get all infos from deployee address thanks to its abi.
 ```
 input {
   blockchain {
     protocol => "ethereum"
     host => "localhost"
     port => 8545
-    granularity => "event"
+    granularity => "contract"
     contract_name => "MyContract"
-    event_name => "MyEvent"
+    event_name => ["MyEvent1", "MyEvent2]"
     network_id => 1
   }
 }
@@ -122,134 +81,6 @@ output {
   stdout {
     codec => json
   }
-}
-```
-
-### Sample Bitcoin events
-
-Here is a how a sample Bitcoin `block` event will look like:
-
-```
-{
-  "@timestamp": "2010-12-29T11:57:43.000Z",
-  "@version": "1",
-  "time": 1293623863,
-  "height": 100000,
-  "hash": "000000000003ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506",
-  "mediantime": 1293622620,
-  "previousblockhash": "000000000002d01c1fccc21636b607dfd930d31d01c3a62104612a1719011250",
-  "bits": "1b04864c",
-  "weight": 3828,
-  "versionHex": "00000001",
-  "confirmations": 109057,
-  "version": 1,
-  "nonce": 274148111,
-  "nextblockhash": "00000000000080b66c911bd5ba14a74260057311eaeb1982802f7010f1a9f090",
-  "difficulty": 14484.1623612254,
-  "chainwork": "0000000000000000000000000000000000000000000000000644cb7f5234089e",
-  "size": 957,
-  "merkleroot": "f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766",
-  "strippedsize": 957,
-  "tx_count": 1,
-  "tx": [
-    "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-    "fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4",
-    "6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4",
-    "e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d"
-  ],
-  "tx_info": [
-    {
-      "vsize": 135,
-      "size": 135,
-      "locktime": 0,
-      "txid": "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-      "vin": [
-        {
-          "sequence": 4294967295,
-          "coinbase": "044c86041b020602"
-        }
-      ],
-      "version": 1,
-      "hash": "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-      "vout": [
-        {
-          "scriptPubKey": {
-            "addresses": [
-              "1HWqMzw1jfpXb3xyuUZ4uWXY4tqL2cW47J"
-            ],
-            "asm": "041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84 OP_CHECKSIG",
-            "hex": "41041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84ac",
-            "type": "pubkey",
-            "reqSigs": 1
-          },
-          "value": 50,
-          "n": 0
-        }
-      ]
-    }
-  ]
-}
-```
-
-And here is a how a sample Bitcoin `transaction` event will look like (note that the block information is inside the `block` property):
-
-```
-{
-  "vsize": 135,
-  "@timestamp": "2010-12-29T11:57:43.000Z",
-  "@version": "1",
-  "version": 1,
-  "hash": "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-  "txid": "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-  "size": 135,
-  "locktime": 0,
-  "block": {
-    "mediantime": 1293622620,
-    "previousblockhash": "000000000002d01c1fccc21636b607dfd930d31d01c3a62104612a1719011250",
-    "bits": "1b04864c",
-    "weight": 3828,
-    "versionHex": "00000001",
-    "confirmations": 109633,
-    "version": 1,
-    "nonce": 274148111,
-    "nextblockhash": "00000000000080b66c911bd5ba14a74260057311eaeb1982802f7010f1a9f090",
-    "difficulty": 14484.1623612254,
-    "chainwork": "0000000000000000000000000000000000000000000000000644cb7f5234089e",
-    "size": 957,
-    "merkleroot": "f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766",
-    "strippedsize": 957,
-    "time": 1293623863,
-    "hash": "000000000003ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506",
-    "height": 100000,
-    "tx_count": 1,
-    "tx": [
-      "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-      "fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4",
-      "6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4",
-      "e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d"
-    ]
-  },
-  "vin": [
-    {
-      "sequence": 4294967295,
-      "coinbase": "044c86041b020602"
-    }
-  ],
-  "vout": [
-    {
-      "scriptPubKey": {
-        "addresses": [
-          "1HWqMzw1jfpXb3xyuUZ4uWXY4tqL2cW47J"
-        ],
-        "asm": "041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84 OP_CHECKSIG",
-        "hex": "41041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84ac",
-        "type": "pubkey",
-        "reqSigs": 1
-      },
-      "value": 50,
-      "n": 0
-    }
-  ]
 }
 ```
 
@@ -347,16 +178,17 @@ And here is a how a sample Ethereum `transaction` event will look like (note tha
 }
 ```
 
-An Ethereum `event` event does not have a standard structure.
-This one depends on event properties and types.
-For example, MyEvent on MyContract looks like this:
+If you watch for the ethereum events of a factory contract then the event will consist of the deployee properties (read from the abi).
+If you want a static mapping in ElasticSearch you will have to do it yourself.
 
 ```
 {
   "@timestamp": "2015-08-17T08:15:42.000Z",
   "@version": "1",
-  "myAddress1": "cf00a85f3826941e7a25bfcf9aac575d40410852"
-  "myAddress2": "d9666150a9da92d9108198a4072970805a8b3428"
+  "reference": "deployee_reference",
+  "name": "deployee_name",
+  "address": "0x7f7f58d3eb5b7510a301ecc749fc1fcddbe14d",
+  "sender": "0x9eEc522FFa63E081a357Bc8023933de101e36fa8"
 }
 ```
 
@@ -368,7 +200,7 @@ Need help? Try #logstash on freenode IRC or the https://discuss.elastic.co/c/log
 
 ### 1. Plugin Development and Testing
 
-#### Code
+#### 1.1 Code
 - To get started, you'll need JRuby with the Bundler gem installed.
 
 - Create a new plugin or clone and existing from the GitHub [logstash-plugins](https://github.com/logstash-plugins) organization. We also provide [example plugins](https://github.com/logstash-plugins?query=example).
@@ -378,19 +210,9 @@ Need help? Try #logstash on freenode IRC or the https://discuss.elastic.co/c/log
 bundle install
 ```
 
-#### Test
+#### 1.2 Smart contracts to listen to
 
-- Update your dependencies
-
-```sh
-bundle install
-```
-
-- Run tests
-
-```sh
-bundle exec rspec
-```
+If you want to listen the ethereum events of some factory contract you will have to put the Deployer and the Deployee JSON file in logstash root.
 
 ### 2. Running your unpublished Plugin in Logstash
 
@@ -398,7 +220,7 @@ bundle exec rspec
 
 - Edit Logstash `Gemfile` and add the local plugin path, for example:
 ```ruby
-gem "logstash-filter-awesome", :path => "/your/local/logstash-filter-awesome"
+gem "logstash-input-blockchain", :path => "/your/local/logstash-input-blockchain"
 ```
 - Install plugin
 ```sh
@@ -406,7 +228,7 @@ bin/logstash-plugin install --no-verify
 ```
 - Run Logstash with your plugin
 ```sh
-bin/logstash -e 'filter {awesome {}}'
+bin/logstash -f logstash-docdoku.yml
 ```
 At this point any modifications to the plugin code will be applied to this local Logstash setup. After modifying the plugin, simply rerun Logstash.
 
@@ -416,11 +238,11 @@ You can use the same **2.1** method to run your plugin in an installed Logstash 
 
 - Build your plugin gem
 ```sh
-gem build logstash-filter-awesome.gemspec
+gem build logstash-input-blockchain.gemspec
 ```
 - Install the plugin from the Logstash home
 ```sh
-bin/logstash-plugin install /your/local/plugin/logstash-filter-awesome.gem
+bin/logstash-plugin install /your/local/plugin/logstash-input-blockchain.gem
 ```
 - Start Logstash and proceed to test the plugin
 
