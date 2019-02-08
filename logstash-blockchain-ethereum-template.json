@@ -1,0 +1,42 @@
+{
+  "template": "ethereum*",
+  "mappings": {
+    "doc": {
+    	"properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "@version": {
+          "type": "keyword"
+        },
+    		"reference": {
+    			"type": "keyword"
+    		},
+    		"name": {
+    			"type": "keyword"
+    		},
+    		"isClosed": {
+    			"type": "boolean"
+    		},
+    		"owner": {
+    			"type": "keyword"
+    		},
+    		"position": {
+    			"type": "geo_point"
+    		},
+    		"creationDate": {
+    			"type": "date"
+    		},
+    		"description": {
+    			"type": "text"
+    		},
+    		"address": {
+    			"type": "keyword"
+    		},
+    		"author": {
+    			"type": "keyword"
+    		}
+    	}
+    }
+  }
+}
