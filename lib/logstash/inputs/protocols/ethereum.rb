@@ -231,12 +231,12 @@ class EthereumProtocol < BlockchainProtocol
   end
   
   def get_contract_obj(contract)
-    JSON.parse(File.read(@@path + contract + ".json"))
+    JSON.parse(File.read(contract + ".json"))
   end
   
   def get_event_types(event_name)
     data_types = Hash.new
-    data_hash = JSON.parse(File.read(@@path + @deployer_contract + ".json"))
+    data_hash = JSON.parse(File.read(@deployer_contract + ".json"))
     data_hash['abi'].each do |element|
       if element['type'] == "event" && element['name'] == event_name
         element['inputs'].each do |field|
