@@ -214,6 +214,10 @@ bundle install
 
 If you want to listen the ethereum events of some factory contract you will have to put the Deployer and the Deployee JSON file in logstash root.
 
+### 1.3 External library
+
+You must have ethereum.rb (https://github.com/EthWorks/ethereum.rb) in your lib folder (next to logstash folder).
+
 ### 2. Running your unpublished Plugin in Logstash
 
 #### 2.1 Run in a local Logstash clone
