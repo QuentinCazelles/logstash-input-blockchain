@@ -1,0 +1,21 @@
+input {
+  blockchain {
+    protocol => "ethereum"
+    host => "127.0.0.1"
+    port => 8002
+    granularity => "contract"
+    interval => 5
+    deployee_contract => "Task"
+    deployer_contract => "MroOnChain"
+    events_watched => ["CreateTask", "TaskTransferred", "TaskClosed", "TaskPositionUpdated", "ImpactedPartAdded", "OperationAdded"]
+    network_id => "955984"
+  }
+}
+output {
+  elasticsearch {
+  	hosts => ["127.0.0.1:9200"]
+    index => "ethereum-tasks"
+    template => "/usr/share/logstash/logstash-input-blockchain/logstash-blockchain-ethereum-template.json"
+    document_id => "%{address}"
+  }
+}
