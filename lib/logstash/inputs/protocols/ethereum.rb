@@ -13,7 +13,6 @@ class EthereumProtocol < BlockchainProtocol
   TX_NUM_KEYS = %w(nonce blockNumber transactionIndex gasPrice gas)
   
   @@decoder = Ethereum::Decoder.new
-  @@path = "/usr/share/mro/Datadir/contracts_json/"
 
   def initialize(host, port, user, pass, logger, deployee_contract, deployer_contract, events_watched, network_id)
     super(host, port, nil, nil, logger)
@@ -25,9 +24,6 @@ class EthereumProtocol < BlockchainProtocol
     @events_watched.each { |event_name|
       @events_watched_keccaked.push(get_event_signature(event_name))
     }
-    if File.exist?(@deployer_contract + ".json")
-      @@path = ""
-    end
   end
 
   # returns a JSON body to be sent to the Ethereum JSON-RPC endpoint
