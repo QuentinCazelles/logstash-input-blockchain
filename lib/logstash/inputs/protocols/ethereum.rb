@@ -101,7 +101,7 @@ class EthereumProtocol < BlockchainProtocol
   
   def get_deployee_infos(tx_info)
     tx_receipt = get_tx_receipt(tx_info['hash'])
-    if tx_receipt['to'].to_s != get_address(@deployer_contract)
+    if tx_receipt['to'].to_s.casecmp?(get_address(@deployer_contract))== false
       return nil
     end
     tx_receipt['logs'].each {|log|
